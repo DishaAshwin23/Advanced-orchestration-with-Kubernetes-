@@ -1,0 +1,34 @@
+---
+helmDefaults:
+  verify: false
+  wait: true
+  timeout: 600 
+  recreatePods: false
+  force: false
+  cleanupOnFail: true
+environments:
+  qa:
+    values:
+      - environments/common.yaml.gotmpl
+      - environments/qa.yaml
+  staging:
+    values:
+      - environments/common.yaml.gotmpl
+      - environments/staging.yaml
+  default:
+    values:
+      - environments/common.yaml.gotmpl
+      - environments/default.yaml
+  load:
+    values:
+      - environments/common.yaml.gotmpl
+      - environments/load.yaml
+repositories:
+  - name: consensys
+    url: https://artifacts.consensys.net/public/helm/helm/charts/
+  - name: banzaicloud
+    url: https://kubernetes-charts.banzaicloud.com
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami/
+  - name: incubator
+    url: https://charts.helm.sh/incubator
