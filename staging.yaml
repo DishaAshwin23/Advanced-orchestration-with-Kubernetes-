@@ -1,0 +1,25 @@
+orchestrate:
+  replicaCount: 3
+  global:
+    environment:
+      MULTI_TENANCY_ENABLED: true
+      DB_DATABASE: orchestrate_staging
+      TOPIC_API: "topic-api"
+      TOPIC_TX_SENDER: "staging-topic-tx-sender"
+      TOPIC_TX_LISTENER: "staging-topic-tx-listener"
+      TOPIC_NOTIFIER: "staging-topic-notifier"
+      TOPIC_NOTIFICATIONS: "staging-topic-notifications"
+      MQ_CONSUMER_GROUP_NAME: "staging-orchestrate-group"
+    environmentSecrets:
+      AUTH_API_KEY: with-key
+
+observability:
+  enabled: true
+drop:
+  enabled: false
+
+vault:
+  replicaCount: 3
+
+qkm:
+  url: https://staging-qkm.ops.consensys.net

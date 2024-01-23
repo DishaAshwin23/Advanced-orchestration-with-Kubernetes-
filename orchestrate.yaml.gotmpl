@@ -1,0 +1,140 @@
+{{ $replicaCount := .Values | get "orchestrate.replicaCount" 1 }}
+{{/* API Proxy cache TTL */}}
+{{ $proxyCacheTTL := "2" }}
+
+# Values for orchestrate.
+global:
+  environment:
+    LOG_FORMAT: json
+    {{- range $key,$value := .Values.orchestrate.global.environment }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+    {{- if .Values.qkm.url }}
+    KEY_MANAGER_URL: {{ .Values.qkm.url }} 
+    {{- end }}
+    KEY_MANAGER_STORE_NAME: {{ .Values.qkm.orchestrate.storeName }}
+    KEY_MANAGER_TLS_SKIP_VERIFY: true
+    AUTH_OIDC_ISSUER_URL: {{ .Values.orchestrate.auth.jwt.issuerUrl }}
+    AUTH_OIDC_CUSTOM_CLAIMS: {{ .Values.orchestrate.auth.jwt.claims }}
+   
+  environmentSecrets:
+    KEY_MANAGER_API_KEY: {{ .Values.qkm.orchestrate.apiKey }}
+    {{- range $key,$value := .Values.orchestrate.global.environmentSecrets }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  imageCredentials:
+    {{- .Values.orchestrate.global.imageCredentials | toYaml | nindent 4 }}
+  image:
+    {{- .Values.orchestrate.global.image | toYaml | nindent 4 }}
+  serviceMonitor:
+    enabled: {{ .Values.observability.enabled }}
+
+api:
+  enabled: true
+  replicaCount: {{ $replicaCount }}
+  {{- if .Values.domainName }}
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
+      nginx.ingress.kubernetes.io/affinity: cookie
+      nginx.ingress.kubernetes.io/affinity-mode: persistent
+      nginx.ingress.kubernetes.io/session-cookie-max-age: {{ $proxyCacheTTL | quote }}
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+      nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+      nginx.ingress.kubernetes.io/cors-allow-methods: "PUT, GET, POST, OPTIONS, DELETE"
+      nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,X-LANG,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,X-Api-Key,X-Device-Id,Access-Control-Allow-Origin"
+    hosts:
+      - host: {{ .Values.orchestrate.namespace }}.orchestrate.{{ .Values.domainName }}
+        http:
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+              
+    tls:
+    - hosts:
+      - {{ .Values.orchestrate.namespace }}.orchestrate.{{ .Values.domainName }}
+  {{- end }}
+  environment:
+    PROXY_CACHE_TTL: {{ $proxyCacheTTL }}s
+    {{- range $key,$value := .Values.orchestrate.api.environment }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  service:
+    sessionAffinityTimeout: {{ $proxyCacheTTL }}
+    http:
+      port: 8080
+  environmentSecrets:
+    {{- range $key,$value := .Values.orchestrate.api.environmentSecrets }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- if gt $replicaCount 1 }}
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - api
+            topologyKey: "topology.kubernetes.io/zone"
+          weight: 100    
+  {{- end }}
+
+migrate:
+  environment:
+    PROXY_CACHE_TTL: {{ $proxyCacheTTL }}s
+    {{- range $key,$value := .Values.orchestrate.api.environment }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  environmentSecrets:
+    {{- range $key,$value := .Values.orchestrate.migrate.environmentSecrets }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  service:
+    sessionAffinityTimeout: {{ $proxyCacheTTL }}
+  
+drop:
+  enabled: {{ .Values.drop.enabled }}
+
+
+txListener:
+  environment:
+    {{- range $key,$value := .Values.orchestrate.txListener.environment }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  environmentSecrets:
+    {{- range $key,$value := .Values.orchestrate.txListener.environmentSecrets }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+
+txSender:
+  replicaCount: {{ $replicaCount }}
+  environment:
+    {{- range $key,$value := .Values.orchestrate.txSender.environment }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  environmentSecrets:
+    {{- range $key,$value := .Values.orchestrate.txSender.environmentSecrets }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  {{- if gt $replicaCount 1 }}
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/component
+                  operator: In
+                  values:
+                    - tx-sender
+            topologyKey: "topology.kubernetes.io/zone"
+          weight: 100    
+  {{- end }}
+test:
+ enabled: {{ .Values.test.enabled }}
+ report:
+    enabled: {{ .Values.test.enabled }}

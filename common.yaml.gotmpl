@@ -1,0 +1,105 @@
+---
+{{ $defaultNamespace := "orchestrate" }}
+{{ $defaultOrchestrateChart := "consensys/orchestrate" }}
+{{ $defaultOrchestrateChartVersion := "3.0.0" }}
+{{ $tag := "v21.12.7" }}
+
+orchestrate:
+  namespace: {{ env "ORCHESTRATE_NAMESPACE" | default $defaultNamespace  }}
+  chart: 
+    name: {{ env "ORCHESTRATE_CHART" | default $defaultOrchestrateChart  }}
+    version: {{ env "ORCHESTRATE_CHART_VERSION" | default $defaultOrchestrateChartVersion  }}
+
+  global:
+    imageCredentials:
+      registry: {{ env "REGISTRY_URL" | default "docker.consensys.net" }}
+      username: {{ requiredEnv "REGISTRY_USERNAME" }}
+      password: {{ requiredEnv "REGISTRY_PASSWORD" }}
+    image:
+      repository: {{ env "ORCHESTRATE_REPOSITORY" | default "consensys/orchestrate" }}
+      tag: {{ env "ORCHESTRATE_TAG" | default $tag | quote }}
+    environment: 
+      DB_USER: {{ requiredEnv "TANUKI_PG_USER" }}
+      DB_HOST: {{ requiredEnv "TANUKI_PG_HOST" }}
+      DB_TLS_SSLMODE: "require"
+      NATS_URLS: {{ requiredEnv "NATS_URLS" }}      
+      TOPIC_API: {{ env "TOPIC_API" | default "topic-api" }}
+      TOPIC_TX_SENDER: {{ env "TOPIC_TX_SENDER" | default "topic-tx-sender" }}
+      TOPIC_TX_LISTENER: {{ env "TOPIC_TX_LISTENER" | default "topic-tx-listener" }}
+      TOPIC_NOTIFIER: {{ env "TOPIC_NOTIFIER" | default "topic-notifier" }}
+      TOPIC_NOTIFICATIONS: {{ env "TOPIC_NOTIFICATIONS" | default "topic-notifications" }}
+      MQ_NUM_CONSUMERS: {{ env "MQ_NUM_CONSUMERS" | default 1 }}
+      MQ_CONSUMER_GROUP_NAME: {{ env "MQ_CONSUMER_GROUP_NAME" | default "orchestrate-cgroup" }}
+      
+    environmentSecrets:
+      DB_PASSWORD: {{ requiredEnv "TANUKI_PG_PWD" }}      
+
+  api:
+    enabled: true
+    environment:
+      HTTP_ADDR: 0.0.0.0:8080
+      DB_USER: {{ requiredEnv "TANUKI_PG_USER" }}
+      DB_HOST: {{ requiredEnv "TANUKI_PG_HOST" }}
+      DB_TLS_SSLMODE: "require"
+    environmentSecrets:
+      DB_PASSWORD: {{ requiredEnv "TANUKI_PG_PWD" }} 
+
+  txListener:
+    environment:
+      HTTP_ADDR: 0.0.0.0:8080
+      API_URL: {{ requiredEnv "API_URL" }}
+    environmentSecrets: {}
+
+  txSender:
+    environment:
+      HTTP_ADDR: 0.0.0.0:8080
+      API_URL: {{ requiredEnv "API_URL" }}
+      REDIS_HOST: {{ requiredEnv "TANUKI_REDIS_ENDPOINT" }}
+      REDIS_PORT: {{ env "TANUKI_REDIS_PORT" | default "6379" }}
+
+    environmentSecrets: {}
+  
+  migrate:
+    environment: {}
+    environmentSecrets:
+      DB_PASSWORD: {{ requiredEnv "TANUKI_PG_PWD" }}
+
+  auth:
+    jwt:
+      issuerUrl: https://consensys.eu.auth0.com/      
+      claims: https://api.orchestrate.network
+
+vaultOperator:
+  enabled: false
+  namespace: {{ env "VAULT_OPERATOR_NAMESPACE" | default "vault-operator" }}
+
+vault:
+  enabled: true
+  replicaCount: 1
+  namespace: {{ env "VAULT_NAMESPACE" | default ( env "ORCHESTRATE_NAMESPACE" | default $defaultNamespace ) }}
+  plugin:
+    name: {{ env "VAULT_PLUGIN_NAME" | default "quorum" }}
+    tag: {{ env "VAULT_PLUGIN_TAG" | default "v1.1.3" }}
+    sha256: {{ env "VAULT_PLUGIN_SHA256SUM" | default "e084800c61749a9c7b51f6e91bb89ab6d5a2678cdb707eaa73f9bef0cf73fc61" }}
+    filename: {{ env "VAULT_PLUGIN_FILENAME" | default "quorum-hashicorp-vault-plugin" }}
+  envs:
+    - VAULT_ADDR: "http://localhost:8200"
+
+qkm:
+  orchestrate:
+    storeName: "eth-accounts"
+    apiKey: {{ env "QKM_API_KEY" }}
+  port: 8080
+  
+observability:
+  namespace: {{ env "OBSERVABILITY_NAMESPACE" | default "observability" }}
+  grafana:
+    user: admin
+    password: {{ env "GRAFANA_PWD" }}
+
+domainName: {{ env "DOMAIN_NAME" }}
+
+test:
+ enabled: false
+ report:
+    enabled: true
